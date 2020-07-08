@@ -13,9 +13,12 @@ from openedx.core.djangolib.markup import HTML, Text
 
         <select class="report-type selector">
             <option value="viewCertificates" data-csv="false"
+                    data-datatable="true"
                     data-endpoint="${ section_data['get_issued_certificates_url'] }">View certificates
             </option>
-            <option value="downloadCertificates" data-csv="true"
+            <option value="downloadCertificates"
+                    data-csv="true"
+                    data-directdownload="true"
                     data-endpoint="${ section_data['get_issued_certificates_url'] }">Download csv of
                 certificates
             </option>

@@ -8,7 +8,7 @@ define([
   function($, id, AjaxHelper) {
       'use strict';
       describe('edx.instructor_dashboard.data_download', function() {
-          var requests, $selected, dataDownload, url;
+          var requests, $selected, dataDownload, url, errorMessage;
 
           beforeEach(function() {
               loadFixtures('js/fixtures/instructor_dashboard/data_download.html');
@@ -21,39 +21,28 @@ define([
               requests = AjaxHelper.requests(this);
               $selected = $('<option data-endpoint="api/url/fake"></option>');
               url = $selected.data('endpoint');
+              errorMessage = 'An Error is occurred with request';
           });
 
-          it('renders grading config returned by the server in case of successful request ', function() {
-              dataDownload.gradingConfiguration($selected);
+          it('renders success message properly', function() {
+              dataDownload.downloadCSV($selected, errorMessage);
 
               AjaxHelper.expectRequest(requests, 'POST', url);
               AjaxHelper.respondWithJson(requests, {
-                  course_id: 'course-v1:university+cs101+2019',
-                  grading_config_summary: 'This is message from the server',
-                  success: true
+                  status: 'Request is succeeded'
               });
-              expect(dataDownload.$download_display_text.text()).toContain('This is message from the server');
+              expect(dataDownload.$reports_request_response.text()).toContain('Request is succeeded');
           });
 
 
-          it('renders profile information success message ', function() {
-              var data = {
-                  status: 'The profile information report is being created.'
-              };
-              dataDownload.profileInformation($selected);
-              AjaxHelper.expectRequest(requests, 'POST', url + '/csv');
-              AjaxHelper.respondWithJson(requests, data);
-              expect(dataDownload.$reports_request_response.text()).toBe(data.status);
-          });
+          it('renders grading config returned by the server in case of successful request ', function() {
+              dataDownload.downloadCSV($selected, errorMessage);
 
-          it('renders learner Report students report in case of successful request ', function() {
-              var data = {
-                  status: 'The Learner report report is being created'
-              };
-              dataDownload.learnerWhoCanEnroll($selected);
               AjaxHelper.expectRequest(requests, 'POST', url);
-              AjaxHelper.respondWithJson(requests, data);
-              expect(dataDownload.$reports_request_response.text()).toBe(data.status);
+              AjaxHelper.respondWithJson(requests, {
+                  grading_config_summary: 'This is grading config'
+              });
+              expect(dataDownload.$download_display_text.text()).toContain('This is grading config');
           });
 
           it('renders enrolled student list in case of successful request ', function() {
@@ -141,7 +130,7 @@ define([
                   ],
                   students_count: 1
               };
-              dataDownload.listEnrolledPeople($selected);
+              dataDownload.renderDataTable($selected, errorMessage);
               AjaxHelper.expectRequest(requests, 'POST', url);
               AjaxHelper.respondWithJson(requests, data);
             // eslint-disable-next-line vars-on-top
@@ -155,72 +144,19 @@ define([
           });
 
 
-          it('renders ORA grading success message ', function() {
-              var data = {
-                  status: 'The ORA data report is being created'
-              };
-              dataDownload.ORADataReport($selected);
-              AjaxHelper.expectRequest(requests, 'POST', url);
-              AjaxHelper.respondWithJson(requests, data);
-              expect(dataDownload.$reports_request_response.text()).toBe(data.status);
+          it('calls renderDataTable function if data-datatable is true', function() {
+              $selected = $selected.attr('data-datatable', true);
+              spyOn(dataDownload, 'selectedOption').and.returnValue($selected);
+              spyOn(dataDownload, 'renderDataTable');
+              dataDownload.downloadReportClickHandler();
+              expect(dataDownload.renderDataTable).toHaveBeenCalled();
           });
 
-          it('Download Problem Report message in case of successful request ', function() {
-              var data = {
-                  status: 'The Problem report is being created'
-              };
-              spyOn($.fn, 'data').and.returnValue(url);
-              dataDownload.$downloadProblemReport.trigger('click');
-              AjaxHelper.expectRequest(requests, 'POST', url);
-              AjaxHelper.respondWithJson(requests, data);
-              expect(dataDownload.$reports_request_response.text()).toBe(data.status);
-          });
-
-          it('renders certificate table in case of successful request ', function() {
-              var data = {
-                  certificates: [{course_id: 'xyz_test', mode: 'honor'}],
-                  queried_features: ['course_id', 'mode'],
-                  feature_names: {course_id: 'Course ID', mode: ' Mode'}
-              };
-              dataDownload.viewCertificates($selected);
-              AjaxHelper.expectRequest(requests, 'POST', url);
-              AjaxHelper.respondWithJson(requests, data);
-            // eslint-disable-next-line vars-on-top
-              var dataTable = dataDownload.$certificate_display_table.html();
-              expect(dataTable.indexOf('Course ID') !== -1).toBe(false);
-              expect(dataTable.indexOf('Mode') !== -1).toBe(false);
-              expect(dataTable.indexOf('honor') !== -1).toBe(false);
-              expect(dataTable.indexOf('xyz_test') !== -1).toBe(false);
-          });
-
-          it('renders Course grade report in case of successful request ', function() {
-              var data = {
-                  status: 'The Course grade report is being created'
-              };
-              spyOn($.fn, 'data').and.returnValue(url);
-              dataDownload.$gradeReportDownload.trigger('click');
-              AjaxHelper.expectRequest(requests, 'POST', url);
-              AjaxHelper.respondWithJson(requests, data);
-              expect(dataDownload.$reports_request_response.text()).toBe(data.status);
-          });
-
-          it('renders Problem grade report in case of successful request ', function() {
-              var data = {
-                  status: 'The Problem grade report is being created'
-              };
-              dataDownload.problemGradeReport($selected);
-              AjaxHelper.expectRequest(requests, 'POST', url);
-              AjaxHelper.respondWithJson(requests, data);
-              expect(dataDownload.$reports_request_response.text()).toBe(data.status);
-          });
-
-
-          it('Navigates to tabs properly', function() {
-              var $tabSwitch = $(dataDownload.$tabSwitch[1]);
-              var selectedSection = '#' + $tabSwitch.attr('data-section');
-              $tabSwitch.trigger('click');
-              expect($(selectedSection).is(':visible')).toBe(true);
-              expect($tabSwitch.hasClass('active-section')).toBe(true);
+          it('calls downloadCSV function if no other data type is specified', function() {
+              spyOn(dataDownload, 'selectedOption').and.returnValue($selected);
+              spyOn(dataDownload, 'downloadCSV');
+              dataDownload.downloadReportClickHandler();
+              expect(dataDownload.downloadCSV).toHaveBeenCalled();
           });
       });
   });

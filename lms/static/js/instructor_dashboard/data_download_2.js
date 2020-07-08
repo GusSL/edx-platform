@@ -40,6 +40,19 @@
             this.$selectedSection = $('#' + this.$tabSwitch.first().attr('data-section'));
             this.$learnerStatus = $('.learner-status');
 
+            this.ERROR_MESSAGES = {
+                ORADataReport: gettext('Error generating ORA data report. Please try again.'),
+                problemGradeReport: gettext('Error generating problem grade report. Please try again.'),
+                profileInformation: gettext('Error generating student profile information. Please try again.'),
+                surveyResultReport: gettext('Error generating survey results. Please try again.'),
+                proctoredExamResults: gettext('Error generating proctored exam results. Please try again.'),
+                learnerWhoCanEnroll: gettext('Error generating list of students who may enroll. Please try again.'),
+                viewCertificates: gettext('Error getting issued certificates list.')
+            };
+
+            /**
+             * Removes text error/success messages and tables from UI
+             */
             this.clear_display = function() {
                 this.$download_display_text.empty();
                 this.$download_display_table.empty();
@@ -57,6 +70,9 @@
 
             this.clear_display();
 
+            /**
+             * Show and hide selected tab data
+             */
             this.$tabSwitch.click(function(event) {
                 var selectedSection = '#' + $(this).attr('data-section');
                 event.preventDefault();
@@ -73,6 +89,9 @@
 
             this.$tabSwitch.first().click();
 
+            /**
+             * on change of report select update show and hide related descriptions
+             */
             this.$report_type_selector.change(function() {
                 var selectedOption = dataDownloadObj.$report_type_selector.val();
                 dataDownloadObj.$selection_informations.each(function(index, ele) {
@@ -85,27 +104,41 @@
                 dataDownloadObj.clear_display();
             });
 
-            this.clickHandler = function() {
-                var selectedOption = dataDownloadObj.$selectedSection.find('select').find('option:selected');
-                dataDownloadObj[selectedOption.val()](selectedOption);
+            this.selectedOption = function() {
+                return dataDownloadObj.$selectedSection.find('select').find('option:selected');
             };
-            this.$download_report.click(dataDownloadObj.clickHandler);
 
-            this.viewCertificates = function(selected) {
+            /**
+             * On click download button get selected option and pass it to handler function.
+             */
+            this.downloadReportClickHandler = function() {
+                var selectedOption = dataDownloadObj.selectedOption();
+                var errorMessage = dataDownloadObj.ERROR_MESSAGES[selectedOption.val()];
+
+                if (selectedOption.data('directdownload')) {
+                    location.href = selectedOption.data('endpoint') + '?csv=true';
+                } else if (selectedOption.data('datatable')) {
+                    dataDownloadObj.renderDataTable(selectedOption);
+                } else {
+                    dataDownloadObj.downloadCSV(selectedOption, errorMessage, false);
+                }
+            };
+            this.$download_report.click(dataDownloadObj.downloadReportClickHandler);
+
+            /**
+             * Call data endpoint and invoke buildDataTable to render Table UI.
+             * @param selected option element from report selector to get data-endpoint.
+             * @param errorMessage Error message in case endpoint call fail.
+             */
+            this.renderDataTable = function(selected, errorMessage) {
                 var url = selected.data('endpoint');
                 dataDownloadObj.clear_display();
                 dataDownloadObj.$certificate_display_table.text(gettext('Loading data...'));
                 return $.ajax({
                     type: 'POST',
                     url: url,
-                    error: function() {
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$download_request_response_error.text(
-                            gettext('Error getting issued certificates list.')
-                        );
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
+                    error: function(error) {
+                        dataDownloadObj.OnError(error, errorMessage);
                     },
                     success: function(data) {
                         dataDownloadObj.buildDataTable(data);
@@ -113,236 +146,58 @@
                 });
             };
 
-            this.downloadCertificates = function(selected) {
-                location.href = selected.data('endpoint') + '?csv=true';
-            };
 
-            this.listAnonymizeStudentIDs = function(select) {
-                location.href = select.data('endpoint');
-            };
-
-            this.proctoredExamResults = function(selected) {
-                var url = selected.data('endpoint');
-                var errorMessage = gettext('Error generating proctored exam results. Please try again.');
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    error: function(error) {
-                        if (error.responseText) {
-                            errorMessage = JSON.parse(error.responseText);
-                        }
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$reports_request_response_error.text(errorMessage);
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$reports_request_response.text(data.status);
-                        return $('.msg-confirm').css({
-                            display: 'block'
-                        });
-                    }
-                });
-            };
-
-            this.surveyResultReport = function(selected) {
-                var url = selected.data('endpoint');
-                var errorMessage = gettext('Error generating survey results. Please try again.');
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    error: function(error) {
-                        if (error.responseText) {
-                            errorMessage = JSON.parse(error.responseText);
-                        }
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$reports_request_response_error.text(errorMessage);
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$reports_request_response.text(data.status);
-                        return $('.msg-confirm').css({
-                            display: 'block'
-                        });
-                    }
-                });
-            };
-
-            this.profileInformation = function(selected) {
-                var url = selected.data('endpoint') + '/csv';
-                var errorMessage = gettext('Error generating student profile information. Please try again.');
-                dataDownloadObj.clear_display();
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    error: function(error) {
-                        if (error.responseText) {
-                            errorMessage = JSON.parse(error.responseText);
-                        }
-                        dataDownloadObj.$reports_request_response_error.text(errorMessage);
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.$reports_request_response.text(data.status);
-                        return $('.msg-confirm').css({
-                            display: 'block'
-                        });
-                    }
-                });
-            };
-
-            this.listEnrolledPeople = function(selected) {
-                var url = selected.data('endpoint');
-                dataDownloadObj.clear_display();
-                dataDownloadObj.$download_display_table.text(gettext('Loading'));
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    error: function() {
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$download_request_response_error.text(
-                            gettext('Error getting student list.')
-                        );
-                        return dataDownloadObj.$download_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.buildDataTable(data);
-                    }
-                });
-            };
-
-            this.$downloadProblemReport.click(function(event) {
-                var url = $(event.target).data('endpoint');
-                dataDownloadObj.clear_display();
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    data: {
-                        problem_location: dataDownloadObj.$list_problem_responses_csv_input.val()
-                    },
-                    error: function(error) {
-                        dataDownloadObj.$reports_request_response_error.text(
-                            JSON.parse(error.responseText)
-                        );
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.$reports_request_response.text(data.status);
-                        return $('.msg-confirm').css({
-                            display: 'block'
-                        });
-                    }
-                });
+            this.$downloadProblemReport.click(function() {
+                var data = {problem_location: dataDownloadObj.$list_problem_responses_csv_input.val()};
+                dataDownloadObj.downloadCSV($(this), false, data);
             });
-
-            this.learnerWhoCanEnroll = function(selected) {
-                var url = selected.data('endpoint');
-                var errorMessage = gettext('Error generating list of students who may enroll. Please try again.');
-                dataDownloadObj.clear_display();
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    error: function(error) {
-                        if (error.responseText) {
-                            errorMessage = JSON.parse(error.responseText);
-                        }
-                        dataDownloadObj.$reports_request_response_error.text(errorMessage);
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.$reports_request_response.text(data.status);
-                        return $('.msg-confirm').css({
-                            display: 'block'
-                        });
-                    }
-                });
-            };
-
-            this.gradingConfiguration = function(selected) {
-                var url = selected.data('endpoint');
-                return $.ajax({
-                    type: 'POST',
-                    dataType: 'json',
-                    url: url,
-                    error: function() {
-                        dataDownloadObj.clear_display();
-                        dataDownloadObj.$download_request_response_error.text(
-                            gettext('Error retrieving grading configuration.')
-                        );
-                        return dataDownloadObj.$download_request_response_error.css({
-                            display: 'block'
-                        });
-                    },
-                    success: function(data) {
-                        dataDownloadObj.clear_display();
-                        return edx.HtmlUtils.setHtml(
-                            dataDownloadObj.$download_display_text, edx.HtmlUtils.HTML(data.grading_config_summary));
-                    }
-                });
-            };
 
             this.$gradeReportDownload.click(function() {
                 var errorMessage = gettext('Error generating grades. Please try again.');
-                var learnerStatus = dataDownloadObj.$learnerStatus.val();
-                dataDownloadObj.downloadCSV($(this), errorMessage, learnerStatus);
+                var data = {verified_learners_only: dataDownloadObj.$learnerStatus.val()};
+                dataDownloadObj.downloadCSV($(this), errorMessage, data);
             });
 
-            this.problemGradeReport = function(selected) {
-                var errorMessage = gettext('Error generating problem grade report. Please try again.');
-                dataDownloadObj.downloadCSV(selected, errorMessage, false);
-            };
-
-            this.ORADataReport = function(selected) {
-                var errorMessage = gettext('Error generating ORA data report. Please try again.');
-                dataDownloadObj.downloadCSV(selected, errorMessage, false);
-            };
-
-            this.downloadCSV = function(selected, errorMessage, learnerStatus) {
+            /**
+             * Call data endpoint and render success/error message on dashboard UI.
+             */
+            this.downloadCSV = function(selected, errorMessage, postData) {
                 var url = selected.data('endpoint');
                 dataDownloadObj.clear_display();
                 return $.ajax({
                     type: 'POST',
                     dataType: 'json',
                     url: url,
-                    data: {verified_learners_only: learnerStatus},
+                    data: postData,
                     error: function(error) {
-                        if (error.responseText) {
-                          // eslint-disable-next-line no-param-reassign
-                            errorMessage = JSON.parse(error.responseText);
-                        }
-                        dataDownloadObj.$reports_request_response_error.text(errorMessage);
-                        return dataDownloadObj.$reports_request_response_error.css({
-                            display: 'block'
-                        });
+                        dataDownloadObj.OnError(error, errorMessage);
                     },
                     success: function(data) {
-                        dataDownloadObj.$reports_request_response.text(data.status);
-                        return $('.msg-confirm').css({
-                            display: 'block'
-                        });
+                        if (data.grading_config_summary) {
+                            edx.HtmlUtils.setHtml(
+                             dataDownloadObj.$download_display_text, edx.HtmlUtils.HTML(data.grading_config_summary));
+                        } else {
+                            dataDownloadObj.$reports_request_response.text(data.status);
+                            $('.msg-confirm').css({display: 'block'});
+                        }
                     }
                 });
             };
 
+            this.OnError = function(error, errorMessage) {
+                dataDownloadObj.clear_display();
+                if (error.responseText) {
+                  // eslint-disable-next-line no-param-reassign
+                    errorMessage = JSON.parse(error.responseText);
+                }
+                dataDownloadObj.$download_request_response_error.text(errorMessage);
+                return dataDownloadObj.$download_request_response_error.css({
+                    display: 'block'
+                });
+            };
+            /**
+             * render data table on dashboard UI with given data.
+             */
             this.buildDataTable = function(data) {
                 var $tablePlaceholder, columns, feature, gridData, options;
                 dataDownloadObj.clear_display();

@@ -18,13 +18,15 @@ from openedx.core.djangolib.markup import HTML, Text
                             data-endpoint="${ section_data['get_grading_config_url'] }">
                         Grading Configuration
                     </option>
-                    <option value="listAnonymizeStudentIDs" data-endpoint="${ section_data['get_anon_ids_url'] }"
+                    <option value="listAnonymizeStudentIDs"
+                            data-endpoint="${ section_data['get_anon_ids_url'] }"
+                            data-directdownload="true"
                             class="${'is-disabled' if disable_buttons else ''}"
                             aria-disabled="${'true' if disable_buttons else 'false'}">Anonymized Student IDs
                     </option>
                     %if settings.FEATURES.get('ENABLE_GRADE_DOWNLOADS'):
                     <option value="profileInformation"
-                            data-endpoint="${ section_data['get_students_features_url'] }"
+                            data-endpoint="${ section_data['get_students_features_url'] + '/csv' }"
                             data-csv="true">Profile Information
                     </option>
                     <option value="learnerWhoCanEnroll"
@@ -33,7 +35,8 @@ from openedx.core.djangolib.markup import HTML, Text
                         who can enroll
                     </option>
                     <option value="listEnrolledPeople"
-                            data-endpoint="${ section_data['get_students_features_url'] }">
+                            data-endpoint="${ section_data['get_students_features_url'] }"
+                            data-datatable="true">
                         List enrolled students profile information
                     </option>
                     %if section_data['show_generate_proctored_exam_report_button']:
